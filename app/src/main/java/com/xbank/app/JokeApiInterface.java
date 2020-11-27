@@ -8,6 +8,5 @@ interface JokeApiInterface {
     Call<Joke> getAJoke();
 
 
-
 }
 

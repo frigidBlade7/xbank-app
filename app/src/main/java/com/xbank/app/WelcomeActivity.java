@@ -1,6 +1,9 @@
 package com.xbank.app;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.Observer;
+import androidx.room.Room;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -20,6 +23,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class WelcomeActivity extends AppCompatActivity {
 
+    private TextView setup, punchline;
     private ProgressBar progressBar;
 
     private Retrofit retrofit = new Retrofit.Builder()
@@ -27,10 +31,12 @@ public class WelcomeActivity extends AppCompatActivity {
             .addConverterFactory(GsonConverterFactory.create())
             .build();
 
+    private JokeDb jokeDb;
+
     JokeApiInterface apiInterface =
             retrofit.create(JokeApiInterface.class);
 
-
+    private LiveData<List<Joke>> jokeListLiveData;
 
 
     @Override
@@ -40,6 +46,20 @@ public class WelcomeActivity extends AppCompatActivity {
 
         progressBar = findViewById(R.id.progressBar);
 
+        setup = (TextView) findViewById(R.id.setup);
+        punchline = (TextView) findViewById(R.id.punchline);
+
+        jokeDb = Room.databaseBuilder(
+                getApplicationContext(),JokeDb.class,"jokedb").build();
+
+        jokeListLiveData = jokeDb.jokeDAO().getAllJokes();
+
+        jokeListLiveData.observe(this, new Observer<List<Joke>>() {
+            @Override
+            public void onChanged(List<Joke> jokes) {
+                Log.d("LIVEDATA", "onChanged: "+jokes.toString());
+            }
+        });
 
     }
 
@@ -52,31 +72,65 @@ public class WelcomeActivity extends AppCompatActivity {
         //sleepClass.execute(10);
 
         progressBar.setIndeterminate(true);
+
         apiInterface.getAJoke().enqueue(new Callback<Joke>() {
             @Override
             public void onResponse(Call<Joke> call, Response<Joke> response) {
                 progressBar.setIndeterminate(false);
                 if(response.code()==200){
                     Joke joke = response.body();
-                    TextView setup = (TextView) findViewById(R.id.setup);
-                    TextView punchline = (TextView) findViewById(R.id.punchline);
 
                     setup.setText(joke.getSetup());
                     punchline.setText(joke.getPunchline());
 
+                    saveJoke(joke);
 
-                    Log.d("WelcomeActivity",joke.getSetup());
+                    Log.d("WelcomeResponded",joke.toString());
+                }else{
+                    Toast.makeText(WelcomeActivity.this, "Response was not success", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<Joke> call, Throwable t) {
-                Log.d("WelcomeActivity",t.getMessage());
+                Log.d("WelcomeError",t.getMessage());
                 progressBar.setIndeterminate(false);
             }
         });
 
     }
+
+
+    private void saveJoke(Joke joke){
+        new DbInfo().execute(joke);
+    }
+
+    class DbInfo extends AsyncTask<Joke,Void,String>{
+
+        @Override
+        protected String doInBackground(Joke... jokes) {
+
+            Joke joke = jokes[0];
+            try {
+                jokeDb.jokeDAO().insert(joke);
+                return "Joke saved successfully";
+
+            }catch (Exception e){
+                Log.d("insert","insertion failed");
+                return "Joke failed to save";
+
+            }
+
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            Toast.makeText(WelcomeActivity.this, s, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
 
 
     class SleepClass extends AsyncTask<Integer, Integer, String> {

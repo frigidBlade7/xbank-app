@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">XBANKAPP</string>
+    <string name="app_name">Joke Bank</string>
     <string name="bank_name">XBANK</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
